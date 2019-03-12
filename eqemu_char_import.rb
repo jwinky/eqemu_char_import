@@ -328,6 +328,9 @@ end
 def importInventory(charId, charLevel, charRace, charClass, charDeity, inventoryData)
   return unless charId && charLevel && inventoryData && inventoryData.length
 
+  # Fix PHPs crappy DB escaping
+  inventoryData.sub!('\&#039;', "'")
+
   newInventory = CSV.parse(inventoryData, :col_sep => "\t")
   return [] unless newInventory
   return [] unless newInventory.first == ['Location', 'Name', 'ID', 'Count', 'Slots']
