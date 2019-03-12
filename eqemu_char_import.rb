@@ -27,19 +27,16 @@ IMPORT_DB_CONFIG = {
   host: 'localhost',
   port: 3306,
   username: 'eqemu_char_import',
-  password: 'eqemu_char_import'
+  password: nil
 }
 
-# Your EQEmu database where character data will be updated.  Requires
-# SELECT and UPDATE permissions on the table 'character_data', and
-# SELECT/INSERT/DELETE permissions on the tables 'inventory' and 
-# 'inventory_snapshots'.
+# Your EQEmu database where character data will be updated.
 EQEMU_DB_CONFIG = {
-  database: 'eqemu',
+  database: 'eqemu_db',
   host: 'localhost',
   port: 3306,
   username: 'eqemu_char_import',
-  password: 'eqemu_char_import'
+  password: nil
 }
 
 PID_FILE_PATH = "/tmp/eqemu_char_import.pid"
