@@ -26,7 +26,7 @@ CREATE TABLE `requests` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `char_name` varchar(50) NOT NULL DEFAULT '',
   `level` smallint(5) unsigned NOT NULL DEFAULT 55,
-  `status` varchar(50) NOT NULL DEFAULT 'queued',
+  `status` varchar(50) NOT NULL DEFAULT 'pending',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `processed_at` datetime DEFAULT NULL,
   `inventory_outfile` text DEFAULT NULL,
