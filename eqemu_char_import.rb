@@ -1,44 +1,27 @@
-#!/bin/env ruby
+#!/usr/bin/env ruby
 
 # eqemu_char_import.rb
 #
-# Imports a character to an EQEmu database based on the files generated
-# using the client /outputfile command. 
+# https://github.com/jwinky/eqemu_char_import
 #
-# The character being imported must already exist and be level 1.  Items
-# and spells that are not usable by your race/class/deity will not be
-# imported.
+# See the README file for instructions and documentation.
 #
-# This script requires access to your EQEmu database and 2 additional tables
-# used by the script.  You can create these tables in your EQEmu database or
-# in a separate database.
+# This script is designed for Linux.  It is untested on Windows.
 #
 
 # -------------------------------
 # CONFIGURATION - EDIT THESE
 # -------------------------------
 
-# The maximum level to which this script will level a character
+# The maximum level to which this script will level a character.
 MAX_LEVEL=55
 
-# The database containing the tables required by this script.
-IMPORT_DB_CONFIG = {
-  database: 'eqemu_char_import',
-  host: 'localhost',
-  port: 3306,
-  username: 'eqemu_char_import',
-  password: nil
-}
-
-# Your EQEmu database where character data will be updated.
-EQEMU_DB_CONFIG = {
-  database: 'eqemu_db',
-  host: 'localhost',
-  port: 3306,
-  username: 'eqemu_char_import',
-  password: nil
-}
-
+# If multiple copies of this script run simultaneously, it will likely
+# corrupt your character data.  To prevent this, the script will do
+# nothing and exit with status 2 if the PID file is present, indicating
+# that the script is already running.
+#
+# Modify the path as appropriate for your platform.
 PID_FILE_PATH = "/tmp/eqemu_char_import.pid"
 
 # -------------------------------
@@ -52,6 +35,7 @@ PID_FILE_PATH = "/tmp/eqemu_char_import.pid"
 
 require 'csv'
 require 'mysql2'
+require 'yaml'
 
 # Check PID lock file
 
@@ -60,19 +44,73 @@ if File.exist?(PID_FILE_PATH)
   exit 2
 end
 
+# Create PID file
 File.write(PID_FILE_PATH, Process.pid)
+
+# Remove PID file when the script exits
 at_exit { File.unlink(PID_FILE_PATH) }
 
-# MySQL configuration
+# Load MySQL configuration
+
+DB_CONF_FILE=File.absolute_path(File.dirname(__FILE__) + "/dbconfig.yml")
+unless File.exist?(DB_CONF_FILE)
+  puts "Error: Database config file #{DB_CONF_FILE} does not exist"
+  exit 3
+end
+
+# Copied from https://github.com/rails/rails/blob/94b5cd3a20edadd6f6b8cf0bdf1a4d4919df86cb/activesupport/lib/active_support/core_ext/hash/keys.rb
+class Hash
+  def deep_symbolize_keys
+    deep_transform_keys { |key| key.to_sym rescue key }
+  end
+  def deep_symbolize_keys!
+    deep_transform_keys! { |key| key.to_sym rescue key }
+  end  
+  def deep_transform_keys(&block)
+    _deep_transform_keys_in_object(self, &block)
+  end unless method_defined? :deep_transform_keys
+  def deep_transform_keys!(&block)
+    _deep_transform_keys_in_object!(self, &block)
+  end unless method_defined? :deep_ransform_keys!
+  private
+  def _deep_transform_keys_in_object(object, &block)
+    case object
+    when Hash
+      object.each_with_object({}) do |(key, value), result|
+        result[yield(key)] = _deep_transform_keys_in_object(value, &block)
+      end
+    when Array
+      object.map { |e| _deep_transform_keys_in_object(e, &block) }
+    else
+      object
+    end
+  end
+  def _deep_transform_keys_in_object!(object, &block)
+    case object
+    when Hash
+      object.keys.each do |key|
+        value = object.delete(key)
+        object[yield(key)] = _deep_transform_keys_in_object!(value, &block)
+      end
+      object
+    when Array
+      object.map! { |e| _deep_transform_keys_in_object!(e, &block) }
+    else
+      object
+    end
+  end
+end
+
+# All that so we can...
+DB_CONFIG=YAML.load_file(DB_CONF_FILE).deep_symbolize_keys!
 
 Mysql2::Client.default_query_options.merge!(:symbolize_keys => true)
 
 # Open script DB and handle errors
-
 begin
-  DB_IMPORT = Mysql2::Client.new(IMPORT_DB_CONFIG)
+  DB_IMPORT = Mysql2::Client.new(DB_CONFIG[:import_script_db])
 rescue Mysql2::Error::ConnectionError => e
-  puts "Error: unable to connect to database '#{IMPORT_DB_CONFIG[:database]}'"
+  puts "Error: unable to connect to import script database"
   puts e.message
   exit 101
 end
@@ -91,9 +129,9 @@ end
 # Open EQEmu DB and handle errors
 
 begin
-  DB_EQ = Mysql2::Client.new(EQEMU_DB_CONFIG)
+  DB_EQ = Mysql2::Client.new(DB_CONFIG[:eqemu_db])
 rescue Mysql2::Error::ConnectionError => e
-  puts "Error: unable to connect to database '#{EQEMU_DB_CONFIG[:database]}'"
+  puts "Error: unable to connect to EQEmu database"
   puts e.message
   exit 103
 end

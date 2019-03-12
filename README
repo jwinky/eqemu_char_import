@@ -1,11 +1,49 @@
-eqemu_char_import
+https://github.com/jwinky/eqemu_char_import
 
 A system for automatically levelling and re-equipping characters based on data from the EQ Client /outputfile command.
 
 Features:
   * only works on level 1 characters
+  * imports inventory, bank (including shared bank), and spellbook
   * enforces race, class, and deity restrictions
-  * can optionally restrict allowed items with a whitelist
   * uses a database table to queue and track import requests
   * designed to be invoked periodically from cron (or another scheduler)
+  * can optionally restrict allowed items with a whitelist (TBD)
+
+Installation:
+
+1. Install Ruby (version 2.1-2.5 recommended)
+
+2. Install the 'mysql2' rubygem
+
+3. Edit dbconfig.yml to specify your database settings.
+
+   The 'import_script_db' database is used for internal script tables.  The scripts in the sql/
+   directory must be loaded into this database.  You can use your EQEmu database for this, but
+   we recommend a separate database.
+
+   The 'eqemu_db' database connects to your actual EQEmu database.  The script will update
+   character data in this database.
+
+4. Edit the eqemu_char_import.rb script and review the configuration settings near the top
+
+5. (DIY) Create import requests (in the 'requests' database table)
+
+   Unfortunately, you have to figure this out yourself.  You could have people submit requests
+   via email, from a website, by tweet, or via Discord bot.  Providing solutions for all possible
+   mechanisms is beyond the scope of this project.
+
+Usage:
+
+To use, just run the script.  Errors will produce (hopefully helpful) output.  On success,
+the script outputs nothing and exits with status 0.
+
+Any error will result in a non-0 exit status.  The actual exit status is meaningful and can
+help you figure out exactly where in the code the error occurs.
+
+Future Improvements:
+
+  * support on-demand usage as well as scheduled
+  * process a single request by ID and exit
+  * get request status
 

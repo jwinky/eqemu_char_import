@@ -1,0 +1,13 @@
+---
+import_script_db:
+  database: eqemu_char_import
+  host: localhost
+  port: 3306
+  username: eqemu_importer
+  password: 
+eqemu_db:
+  database: eqemu
+  host: localhost
+  port: 3306
+  username: eqemu_importer
+  password: 
