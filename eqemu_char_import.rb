@@ -326,12 +326,12 @@ def setCharLevel(charId, level)
 end
 
 def importInventory(charId, charLevel, charRace, charClass, charDeity, inventoryData)
-  return unless charId && inventoryData
+  return unless charId && charLevel && inventoryData && inventoryData.length
 
   newInventory = CSV.parse(inventoryData, :col_sep => "\t")
   return [] unless newInventory
   return [] unless newInventory.first == ['Location', 'Name', 'ID', 'Count', 'Slots']
-  newInventory.shift
+  newInventory.shift # Discard field names
 
   # Remove "Empty" entries
   newInventory = newInventory.reject {|i| i[1] == 'Empty' }
@@ -372,7 +372,7 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
 end
 
 def importSpellbook(charId, charClassNum, spellbookData)
-  return unless charId && charClassNum && spellbookData
+  return unless charId && charClassNum && spellbookData && spellbookData.length
 
   newSpells = CSV.parse(spellbookData, :col_sep => "\t")
   return unless newSpells
@@ -411,10 +411,10 @@ goodRequests.each do |req|
   setCharLevel(char[:id], req[:level]) if char[:level] < req[:level]
 
   # Import inventory
-  invalidItems = importInventory(char[:id], req[:level], char[:race], char[:class], char[:deity], req[:inventory_outfile])
+  invalidItems = importInventory(char[:id], req[:level], char[:race], char[:class], char[:deity], (req[:inventory_outfile] || "").strip)
 
   # Import spellbook
-  importSpellbook(char[:id], char[:class], req[:spellbook_outfile])
+  importSpellbook(char[:id], char[:class], (req[:spellbook_outfile] || "").strip)
 
   Q_RequestUpdate.execute('complete', nil, invalidItems.join(', '), req[:id])
 end
