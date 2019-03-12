@@ -1,0 +1,11 @@
+eqemu_char_import
+
+A system for automatically levelling and re-equipping characters based on data from the EQ Client /outputfile command.
+
+Features:
+  * only works on level 1 characters
+  * enforces race, class, and deity restrictions
+  * can optionally restrict allowed items with a whitelist
+  * uses a database table to queue and track import requests
+  * designed to be invoked periodically from cron (or another scheduler)
+
