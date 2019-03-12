@@ -84,7 +84,7 @@ exit 102 if DB_IMPORT.nil?
 
 # Load pending requests
 
-requests = DB_IMPORT.query("SELECT * FROM requests WHERE status = 'pending' AND processed_at IS NULL ORDER BY created_at")
+requests = DB_IMPORT.query("SELECT * FROM requests WHERE status = 'pending' ORDER BY created_at")
 
 if requests.count == 0 
   puts "No pending import requests."
@@ -126,9 +126,8 @@ goodRequests, badRequests = requests.partition {|r| !!charDataByName[r[:char_nam
 # Update all "bad" requests at once
 
 if badRequests.count > 0
-  #badIds = badRequests.map {|r| r[:id] }
-  #DB_IMPORT.query("UPDATE requests SET processed_at = current_timestamp(), status = 'invalid', error_msg = 'Level 1 character with this name could not be found.  Please create a level 1 character and try again.' WHERE id IN (#{badIds.join(',')})")
-  exit(2)
+  badIds = badRequests.map {|r| r[:id] }
+  DB_IMPORT.query("UPDATE requests SET processed_at = current_timestamp(), status = 'invalid', error_msg = 'Level 1 character with this name could not be found.  Please create a level 1 character and try again.' WHERE id IN (#{badIds.join(',')})")
 end
 
 
@@ -378,7 +377,7 @@ goodRequests.each do |req|
   # Import spellbook
   importSpellbook(char[:id], char[:class], req[:spellbook_outfile])
 
-  #Q_RequestUpdate.execute('complete', nil, invalidItems.join(', '), req[:id])
+  Q_RequestUpdate.execute('complete', nil, invalidItems.join(', '), req[:id])
 end
 
 
