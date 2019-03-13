@@ -371,23 +371,37 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
   # Remove "Empty" entries
   newInventory = newInventory.reject {|i| i[1] == 'Empty' }
 
-  # TODO: Incorporate item whitelist
-  wheres = newInventory.map {|i| "(name = '#{DB_EQ.escape(i[1])}' AND id = #{i[2]})" }
+  # Filter out items that don't match by name *and* ID or that are restricted to GMs
+  whereNewItems = newInventory.map {|i| "(name = '#{DB_EQ.escape(i[1])}' AND id = #{i[2]})" }.join(' OR ')
+  validNewItemIDs = DB_EQ.query("SELECT id FROM items WHERE minstatus = 0 AND (#{whereNewItems})").map {|r| r[:id]}
 
-  # Custom SQL enforces race, class, and deity restrictions.  This ensures only usable items
-  # from the outfile are imported to prevent deliberate abuse.
-  sql = "SELECT id FROM items WHERE minstatus = 0 AND (classes = 0 OR classes & #{classMask} > 0) AND (deity = 0 OR deity & #{deityMask} > 0) AND (races = 0 OR races & #{raceMask} > 0) AND (#{wheres.join(' OR ')})"
-  usableItemIds = DB_EQ.query(sql).map {|r| r[:id] }
+  validItems, invalidItems = newInventory.partition { |i| validNewItemIDs.member?(i[2].to_i) }
 
-  usableItems, unusableItems = newInventory.partition {|i| usableItemIds.member?(i[2].to_i) }
+  # Race/class/deity restrictions must be enforced for equipped items, but ignored for
+  # items in inventory, bank, or on cursor.
+  inventoryItems, equippedItems = validItems.partition {|i| i[0].start_with?(/General|Bank|SharedBank|Held/) }
 
-  # Delete current inventory and bank
-  Q_ClearInvAndBank.execute(charId) if usableItems.count
+  # Filter equippedItems by race/class/deity restrictions using the database
+  equipmentQuery = "SELECT id FROM items WHERE id IN (#{equippedItems.map {|i| i[2]}.join(',')}) AND (classes = 0 OR classes & #{classMask} > 0) AND (deity = 0 OR deity & #{deityMask} > 0) AND (races = 0 OR races & #{raceMask} > 0)"
+  usableEquipIDs = DB_EQ.query(equipmentQuery).map {|r| r[:id] }
+
+  usableEquip, unusableEquip = equippedItems.partition {|i| usableEquipIDs.member?(i[2].to_i) }
+
+  invalidItems += unusableEquip if unusableEquip.count
+
+  # Return early to avoid making changes if we don't have any valid items
+  return invalidItems.map {|i| i[1]} if usableEquip.empty? && inventoryItems.empty?
+
+  #
+  # Critical Section
+  #
+
+  Q_ClearInvAndBank.execute(charId)
 
   # Keeps track of slots we've used
   slotMap = InvOutfileSlotMap.dup
 
-  usableItems.each do |i|
+  (usableEquip + inventoryItems).each do |i|
     location, name, itemId, charges, slots = i
     next unless location && name && itemId && name != 'Empty'
 
@@ -395,15 +409,15 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
     nextSlotId = availSlots.shift
     slotMap[location] = availSlots
 
-    if nextSlotId && nextSlotId > -1
+    if nextSlotId
       Q_AddInvItem.execute(charId, nextSlotId, itemId, charges)
     else
-      unusableItems.push(i)
+      invalidItems.push(i)
     end
   end
 
   # Return the names of all unusable items
-  return unusableItems.map {|i| i[1]}
+  return invalidItems.map {|i| i[1]}
 end
 
 def importSpellbook(charId, charClassNum, spellbookData)
