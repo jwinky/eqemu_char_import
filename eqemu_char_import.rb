@@ -172,7 +172,7 @@ end
 
 Q_RequestUpdate     = DB_IMPORT.prepare("UPDATE requests SET processed_at = current_timestamp(), status = ?, error_msg = ?, invalid_items = ? WHERE id = ?")
 
-Q_UpdateLevel       = DB_EQ.prepare("UPDATE character_data SET level = ?, exp = ? WHERE id = ?")
+Q_UpdateLevel       = DB_EQ.prepare("UPDATE character_data SET level = ?, points = level * 5, exp = ? WHERE id = ?")
 Q_SetFullHealthMana = DB_EQ.prepare("UPDATE character_data as cd LEFT JOIN base_data bd ON bd.level = cd.level AND bd.class = cd.class SET cur_hp = bd.hp, cd.mana = bd.mana WHERE id = ?")
 
 Q_ClearInvAndBank   = DB_EQ.prepare("DELETE FROM inventory WHERE charid = ?")
@@ -308,11 +308,28 @@ InvOutfileSlotMap = {
   'SharedBank2-Slot6'=>2546, 'SharedBank2-Slot7'=>2547, 'SharedBank2-Slot8'=>2548, 'SharedBank2-Slot9'=>2549, 'SharedBank2-Slot10'=>2550
 }
 
-def expForLevel(level)
-  return 0 if level < 1 || level > 100
+# From https://github.com/EQEmu/Server/blob/9c42f28b0dcc30f1d3c433350c434bff2279452f/zone/exp.cpp#L867
+def expModForLevel(level)
+  return 1.0 if level < 31
+  return 1.1 if level < 36
+  return 1.2 if level < 41
+  return 1.3 if level < 46
+  return 1.4 if level < 52
+  return 1.5 if level < 53
+  return 1.6 if level < 54
+  return 1.7 if level < 55
+  return 1.9 if level < 56
+  return 2.1 if level < 57
+  return 2.3 if level < 58
+  return 2.5 if level < 59
+  return 2.7 if level < 60
+  return 3.0 if level < 61
+  return 3.1
+end
 
-  # TODO: Use the level_exp_mods table for precision
-  return level * level * level * 1000;
+# Does not support race/class exp penalties/bonuses
+def expForLevel(level)
+  return (((level - 1)**3) * expModForLevel(level) * 1000).to_i
 end
 
 def setCharLevel(charId, level)
@@ -320,8 +337,12 @@ def setCharLevel(charId, level)
 
   # Constrain to MAX_LEVEL
   level = MAX_LEVEL if level > MAX_LEVEL
+  levelExp = expForLevel(level)
 
-  Q_UpdateLevel.execute(level, expForLevel(level), charId)
+  # 20% buffer exp
+  additionalExp = (expForLevel(level + 1) - levelExp) * 0.20
+
+  Q_UpdateLevel.execute(level, levelExp + additionalExp, charId)
   Q_SetFullHealthMana.execute(charId)
 end
 
