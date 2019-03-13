@@ -308,6 +308,12 @@ InvOutfileSlotMap = {
   'SharedBank2-Slot6'=>2546, 'SharedBank2-Slot7'=>2547, 'SharedBank2-Slot8'=>2548, 'SharedBank2-Slot9'=>2549, 'SharedBank2-Slot10'=>2550
 }
 
+# Keys are Deity ID, values are Deity Bitmask
+DeityBitmaskById = {
+  140 => 1, 201 => 2, 202 => 4, 203 => 8, 204 => 16, 205 => 32, 206 => 64, 207 => 128, 208 => 256,
+  209 => 512, 210 => 1024, 211 => 2048, 212 => 4096, 213 => 8192, 214 => 16384, 215 => 32768, 216 => 65536
+}
+
 # From https://github.com/EQEmu/Server/blob/9c42f28b0dcc30f1d3c433350c434bff2279452f/zone/exp.cpp#L867
 def expModForLevel(level)
   return 1.0 if level < 31
@@ -349,6 +355,11 @@ end
 def importInventory(charId, charLevel, charRace, charClass, charDeity, inventoryData)
   return unless charId && charLevel && inventoryData && inventoryData.length
 
+  # Convert IDs to Bitmasks
+  raceMask = 2**(charRace - 1)
+  classMask = 2**(charClass - 1)
+  deityMask = DeityBitmaskById[charDeity] || 2**20 # Bogus default value
+
   # Fix PHPs crappy DB escaping
   inventoryData.gsub!('\&#039;', "'")
 
@@ -365,7 +376,7 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
 
   # Custom SQL enforces race, class, and deity restrictions.  This ensures only usable items
   # from the outfile are imported to prevent deliberate abuse.
-  sql = "SELECT id FROM items WHERE minstatus = 0 AND (classes = 0 OR classes & #{charClass} > 0) AND (deity = 0 OR deity & #{charDeity} > 0) AND (races = 0 OR races & #{charRace} > 0) AND (#{wheres.join(' OR ')})"
+  sql = "SELECT id FROM items WHERE minstatus = 0 AND (classes = 0 OR classes & #{classMask} > 0) AND (deity = 0 OR deity & #{deityMask} > 0) AND (races = 0 OR races & #{raceMask} > 0) AND (#{wheres.join(' OR ')})"
   usableItemIds = DB_EQ.query(sql).map {|r| r[:id] }
 
   usableItems, unusableItems = newInventory.partition {|i| usableItemIds.member?(i[2].to_i) }
