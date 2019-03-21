@@ -424,7 +424,7 @@ def importSpellbook(charId, charClassNum, spellbookData)
   return unless charId && charClassNum && spellbookData && spellbookData.length
 
   newSpells = CSV.parse(spellbookData, :col_sep => "\t")
-  return unless newSpells
+  return unless newSpells && !newSpells.empty?
 
   # Custom query ensures we only get PC class-specific spells.  This prevents
   # malicious outfile data from scribing invalid spells.
