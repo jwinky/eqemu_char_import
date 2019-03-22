@@ -170,6 +170,9 @@ Q_AddInvItem        = DB_EQ.prepare("INSERT INTO inventory (charid, slotid, item
 Q_ClearSpellbook    = DB_EQ.prepare("DELETE FROM character_spells WHERE id = ?")
 Q_AddScribedSpell   = DB_EQ.prepare("INSERT INTO character_spells (id, slot_id, spell_id) VALUES (?, ?, ?)")
 
+Q_SetPlatinum       = DB_EQ.prepare("UPDATE character_currency SET platinum = ? WHERE id = ?");
+Q_AddItem           = DB_EQ.prepare("INSERT INTO inventory (charid, slotid, itemid, charges) VALUES (?, -1, ?, 1)");
+
 
 #
 # Helper/Utility Functions
@@ -436,6 +439,23 @@ def importSpellbook(charId, charClassNum, spellbookData)
   end
 end
 
+def givePlatinum(charid, amount)
+  return unless charid && charid > 0 && amount && amount > 0
+  
+  Q_SetPlatinum.execute(amount, charid)
+end
+
+def giveItems(charid, itemIds)
+  return unless charid && charid > 0 && itemIds && itemIds.count > 0
+
+  itemIds.each do |rawItemId|
+    iid = rawItemId.to_i
+    next unless iid > 0
+
+    Q_AddItem.execute(charid, iid)
+  end
+end
+
 
 #
 # Main processing loop
@@ -453,6 +473,10 @@ goodRequests.each do |req|
 
   # Import spellbook
   importSpellbook(char[:id], char[:class], (req[:spellbook_outfile] || "").strip)
+
+  givePlatinum(char[:id], DB_CONFIG[:give_platinum].to_i)
+
+  giveItems(char[:id], DB_CONFIG[:give_items]) if DB_CONFIG[:give_items].is_a?(Array)
 
   Q_RequestUpdate.execute('complete', nil, invalidItems.join(', '), req[:id])
 end

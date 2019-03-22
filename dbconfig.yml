@@ -1,6 +1,9 @@
 ---
 max_level: 55
 pid_file: /tmp/eqemu_char_import.pid
+give_platinum: 7000
+give_items:
+  - 32601
 import_script_db:
   database: eqemu_char_import
   host: localhost

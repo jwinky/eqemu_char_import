@@ -12,3 +12,4 @@ GRANT SELECT ON items TO eqemu_importer@localhost;
 GRANT SELECT ON spells_new TO eqemu_importer@localhost;
 GRANT SELECT ON base_data TO eqemu_importer@localhost;
 GRANT SELECT ON level_exp_mods TO eqemu_importer@localhost;
+GRANT SELECT, UPDATE ON character_currency TO eqemu_importer@localhost;
