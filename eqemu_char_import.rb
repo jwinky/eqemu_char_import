@@ -9,26 +9,6 @@
 # This script is designed for Linux.  It is untested on Windows.
 #
 
-# -------------------------------
-# CONFIGURATION - EDIT THESE
-# -------------------------------
-
-# The maximum level to which this script will level a character.
-MAX_LEVEL=55
-
-# If multiple copies of this script run simultaneously, it will likely
-# corrupt your character data.  To prevent this, the script will do
-# nothing and exit with status 2 if the PID file is present, indicating
-# that the script is already running.
-#
-# Modify the path as appropriate for your platform.
-PID_FILE_PATH = "/tmp/eqemu_char_import.pid"
-
-# -------------------------------
-# END OF CONFIGURATION
-# -------------------------------
-
-
 #
 # Initialization
 #
@@ -37,20 +17,9 @@ require 'csv'
 require 'mysql2'
 require 'yaml'
 
-# Check PID lock file
-
-if File.exist?(PID_FILE_PATH)
-  puts "Error: this script is already running.  Remove the file #{PID_FILE_PATH} if you're sure it's not."
-  exit 2
-end
-
-# Create PID file
-File.write(PID_FILE_PATH, Process.pid)
-
-# Remove PID file when the script exits
-at_exit { File.unlink(PID_FILE_PATH) }
-
-# Load MySQL configuration
+#
+# Load configuration file
+# 
 
 DB_CONF_FILE=File.absolute_path(File.dirname(__FILE__) + "/dbconfig.yml")
 unless File.exist?(DB_CONF_FILE)
@@ -105,6 +74,26 @@ end
 DB_CONFIG=YAML.load_file(DB_CONF_FILE).deep_symbolize_keys!
 
 Mysql2::Client.default_query_options.merge!(:symbolize_keys => true)
+
+MAX_LEVEL=DB_CONFIG[:max_level]
+PID_FILE_PATH=DB_CONFIG[:pid_file]
+
+
+#
+# Check PID lock file
+#
+
+if File.exist?(PID_FILE_PATH)
+  puts "Error: this script is already running.  Remove the file #{PID_FILE_PATH} if you're sure it's not."
+  exit 2
+end
+
+# Create PID file
+File.write(PID_FILE_PATH, Process.pid)
+
+# Remove PID file when the script exits
+at_exit { File.unlink(PID_FILE_PATH) }
+
 
 # Open script DB and handle errors
 begin
