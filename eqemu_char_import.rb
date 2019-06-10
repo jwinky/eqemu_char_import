@@ -413,7 +413,7 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
   return invalidItems.map {|i| i[1]}
 end
 
-def importSpellbook(charId, charClassNum, spellbookData)
+def importSpellbook(charId, charClassNum, charLevel, spellbookData)
   return unless charId && charClassNum && spellbookData && spellbookData.length
 
   newSpells = CSV.parse(spellbookData, :col_sep => "\t")
@@ -421,8 +421,9 @@ def importSpellbook(charId, charClassNum, spellbookData)
 
   # Custom query ensures we only get PC class-specific spells.  This prevents
   # malicious outfile data from scribing invalid spells.
-  wheres = newSpells.map {|s| "(name = '#{DB_EQ.escape(s.last)}' AND classes#{charClassNum} = #{s.first.to_i})" }
-  validSpellsByName = DB_EQ.query("SELECT id, name FROM spells_new WHERE #{wheres.join(' OR ')}").reduce({}) {|memo, r| memo[r[:name]] ||= r[:id]; memo }
+  newSpells.select! {|i| i.kind_of?(Array) && i.length > 0 }
+  wheres = newSpells.map {|s| "(name = '#{DB_EQ.escape(s.last)}' AND classes#{charClassNum} <= #{charLevel.to_i})" }
+  validSpellsByName = DB_EQ.query("SELECT id, name FROM spells_new WHERE #{wheres.join(' OR ')} ORDER BY id DESC").reduce({}) {|memo, r| memo[r[:name]] ||= r[:id]; memo }
 
   # Clear spellbook
   Q_ClearSpellbook.execute(charId)
@@ -473,7 +474,7 @@ goodRequests.each do |req|
   invalidItems = importInventory(char[:id], req[:level], char[:race], char[:class], char[:deity], (req[:inventory_outfile] || "").strip)
 
   # Import spellbook
-  importSpellbook(char[:id], char[:class], (req[:spellbook_outfile] || "").strip)
+  importSpellbook(char[:id], char[:class], req[:level], (req[:spellbook_outfile] || "").strip)
 
   givePlatinum(char[:id], DB_CONFIG[:give_platinum].to_i)
 
