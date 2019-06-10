@@ -365,8 +365,16 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
   newInventory = newInventory.reject {|i| i[1] == 'Empty' }
 
   # Filter out items that don't match by name *and* ID or that are restricted to GMs
-  whereNewItems = newInventory.map {|i| "(name = '#{DB_EQ.escape(i[1])}' AND id = #{i[2]})" }.join(' OR ')
-  validNewItemIDs = DB_EQ.query("SELECT id FROM items WHERE minstatus = 0 AND (#{whereNewItems})").map {|r| r[:id]}
+  whereNewItems = newInventory.map do |i| 
+    itemName = i[1]
+    itemId = i[2] || i[3]
+    
+    return nil unless itemName && itemId && itemName.length > 0
+    return "(name = '#{DB_EQ.escape(itemName)}' AND id = #{itemId})" 
+  end
+  whereNewItems.compact!
+
+  validNewItemIDs = DB_EQ.query("SELECT id FROM items WHERE minstatus = 0 AND (#{whereNewItems.join(' OR ')})").map {|r| r[:id]}
 
   validItems, invalidItems = newInventory.partition { |i| validNewItemIDs.member?(i[2].to_i) }
 
@@ -375,8 +383,8 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
   inventoryItems, equippedItems = validItems.partition {|i| i[0].start_with?(/General|Bank|SharedBank|Held/) }
 
   # Filter equippedItems by race/class/deity restrictions using the database
-  equipmentQuery = "SELECT id FROM items WHERE id IN (#{equippedItems.map {|i| i[2]}.join(',')}) AND (classes = 0 OR classes & #{classMask} > 0) AND (deity = 0 OR deity & #{deityMask} > 0) AND (races = 0 OR races & #{raceMask} > 0)"
-  usableEquipIDs = DB_EQ.query(equipmentQuery).map {|r| r[:id] }
+  equipmentQuery = "SELECT id FROM items WHERE id IN (#{equippedItems.map {|i| (i[2].nil? || i[2].empty?) ? i[3] : i[2]}.join(',')}) AND (classes = 0 OR classes & #{classMask} > 0) AND (deity = 0 OR deity & #{deityMask} > 0) AND (races = 0 OR races & #{raceMask} > 0)"
+  usableEquipIDs = equippedItems.empty? ? [] : DB_EQ.query(equipmentQuery).map {|r| r[:id] }
 
   usableEquip, unusableEquip = equippedItems.partition {|i| usableEquipIDs.member?(i[2].to_i) }
 
@@ -410,7 +418,7 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
   end
 
   # Return the names of all unusable items
-  return invalidItems.map {|i| i[1]}
+  return invalidItems.map {|i| i[1]}.compact
 end
 
 def importSpellbook(charId, charClassNum, charLevel, spellbookData)
@@ -480,7 +488,7 @@ goodRequests.each do |req|
 
   giveItems(char[:id], DB_CONFIG[:give_items]) if DB_CONFIG[:give_items].is_a?(Array)
 
-  Q_RequestUpdate.execute('complete', nil, invalidItems.join(', '), req[:id])
+  Q_RequestUpdate.execute('complete', nil, Array(invalidItems).join(', '), req[:id])
 end
 
 
