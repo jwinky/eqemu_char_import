@@ -171,8 +171,8 @@ Q_AddInvItem        = DB_EQ.prepare("INSERT INTO inventory (charid, slotid, item
 Q_ClearSpellbook    = DB_EQ.prepare("DELETE FROM character_spells WHERE id = ?")
 Q_AddScribedSpell   = DB_EQ.prepare("INSERT INTO character_spells (id, slot_id, spell_id) VALUES (?, ?, ?)")
 
-Q_SetPlatinum       = DB_EQ.prepare("UPDATE character_currency SET platinum = ? WHERE id = ?");
-Q_AddItem           = DB_EQ.prepare("INSERT INTO inventory (charid, slotid, itemid, charges) VALUES (?, -1, ?, 1)");
+Q_SetPlatinum       = DB_EQ.prepare("INSERT INTO character_currency (id, platinum) values (?, ?) ON DUPLICATE KEY UPDATE platinum = platinum + ?");
+Q_AddItem           = DB_EQ.prepare("INSERT INTO inventory (charid, slotid, itemid, charges) VALUES (?, 33, ?, 1)");
 
 
 #
@@ -443,7 +443,7 @@ end
 def givePlatinum(charid, amount)
   return unless charid && charid > 0 && amount && amount > 0
   
-  Q_SetPlatinum.execute(amount, charid)
+  Q_SetPlatinum.execute(charid, amount, amount)
 end
 
 def giveItems(charid, itemIds)
