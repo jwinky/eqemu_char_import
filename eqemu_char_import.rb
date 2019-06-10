@@ -140,12 +140,13 @@ itemWhitelistByName = itemWhitelist.inject({}) {|memo, r| memo[r[:name]] = r[:id
 # Load character data for all queued requests
 #
 
-charQuery = DB_EQ.prepare("SELECT id, name, level, gender, race, class, deity FROM character_data WHERE level = 1 AND name IN (?)")
 charNames = requests.map {|r| r[:char_name] }
-charData  = charQuery.execute(*charNames)
-charDataByName = charData.reduce({}) {|memo, r| memo[r[:name]] = r; memo }
+charWheres = charNames.map {|n| "(name like '#{DB_EQ.escape(n)}')"}.join(" OR ");
+charQuery = DB_EQ.prepare("SELECT id, name, level, gender, race, class, deity FROM character_data WHERE level = 1 AND (#{charWheres})")
+charData  = charQuery.execute()
+charDataByName = charData.reduce({}) {|memo, r| memo[r[:name].downcase] = r; memo }
 
-goodRequests, badRequests = requests.partition {|r| !!charDataByName[r[:char_name]] }
+goodRequests, badRequests = requests.partition {|r| !!charDataByName[r[:char_name].downcase] }
 
 # Update all "bad" requests at once
 
@@ -462,7 +463,7 @@ end
 #
 
 goodRequests.each do |req|
-  char = charDataByName[req[:char_name]]
+  char = charDataByName[req[:char_name].downcase]
   next unless char
 
   # Level character
