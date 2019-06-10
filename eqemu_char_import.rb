@@ -132,7 +132,7 @@ exit 104 if DB_EQ.nil?
 # Load whitelisted items
 #
 
-itemWhitelist = DB_IMPORT.query("SELECT item_id, name FROM whitelisted_items");
+itemWhitelist = DB_IMPORT.query("SELECT outfile_id, outfile_name, item_id FROM whitelisted_items");
 itemWhitelistByName = itemWhitelist.inject({}) {|memo, r| memo[r[:name]] = r[:id]; memo }
 
 
@@ -171,7 +171,7 @@ Q_AddInvItem        = DB_EQ.prepare("INSERT INTO inventory (charid, slotid, item
 Q_ClearSpellbook    = DB_EQ.prepare("DELETE FROM character_spells WHERE id = ?")
 Q_AddScribedSpell   = DB_EQ.prepare("INSERT INTO character_spells (id, slot_id, spell_id) VALUES (?, ?, ?)")
 
-Q_SetPlatinum       = DB_EQ.prepare("INSERT INTO character_currency (id, platinum) values (?, ?) ON DUPLICATE KEY UPDATE platinum = platinum + ?");
+Q_SetPlatinum       = DB_EQ.prepare("INSERT INTO character_currency (id, platinum) values (?, ?) ON DUPLICATE KEY UPDATE platinum = ?");
 Q_AddItem           = DB_EQ.prepare("INSERT INTO inventory (charid, slotid, itemid, charges) VALUES (?, 33, ?, 1)");
 
 
