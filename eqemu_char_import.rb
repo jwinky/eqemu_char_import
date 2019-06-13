@@ -369,8 +369,11 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
     itemName = i[1]
     itemId = i[2] || i[3]
     
-    return nil unless itemName && itemId && itemName.length > 0
-    return "(name = '#{DB_EQ.escape(itemName)}' AND id = #{itemId})" 
+    unless itemName && itemId && itemName.length > 0
+      nil
+    else
+      "(name = '#{DB_EQ.escape(itemName)}' AND id = #{itemId})" 
+    end
   end
   whereNewItems.compact!
 
@@ -384,6 +387,7 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
 
   # Filter equippedItems by race/class/deity restrictions using the database
   equipmentQuery = "SELECT id FROM items WHERE id IN (#{equippedItems.map {|i| (i[2].nil? || i[2].empty?) ? i[3] : i[2]}.join(',')}) AND (classes = 0 OR classes & #{classMask} > 0) AND (deity = 0 OR deity & #{deityMask} > 0) AND (races = 0 OR races & #{raceMask} > 0)"
+
   usableEquipIDs = equippedItems.empty? ? [] : DB_EQ.query(equipmentQuery).map {|r| r[:id] }
 
   usableEquip, unusableEquip = equippedItems.partition {|i| usableEquipIDs.member?(i[2].to_i) }
@@ -391,7 +395,7 @@ def importInventory(charId, charLevel, charRace, charClass, charDeity, inventory
   invalidItems += unusableEquip if unusableEquip.count
 
   # Return early to avoid making changes if we don't have any valid items
-  return invalidItems.map {|i| i[1]} if usableEquip.empty? && inventoryItems.empty?
+  return invalidItems.map {|i| i[1]}.compact if usableEquip.empty? && inventoryItems.empty?
 
   #
   # Critical Section
@@ -462,7 +466,10 @@ def giveItems(charid, itemIds)
     iid = rawItemId.to_i
     next unless iid > 0
 
-    Q_AddItem.execute(charid, iid)
+    # This will fail for more than 1 item, or if the character already has
+    # an item in the Hand slot.
+    # TODO: Find a better solution for first-time items
+    Q_AddItem.execute(charid, iid) rescue nil
   end
 end
 
